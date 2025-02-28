@@ -1,43 +1,41 @@
 package no.maddin.reasearchtool;
 
-import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
+import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
-import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import dev.langchain4j.store.embedding.IngestionResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import java.io.Console;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-
-import static dev.langchain4j.model.chat.ChatLanguageModelExtensionsKt.chat;
-import static dev.langchain4j.model.openai.OpenAiChatModelName.GPT_4_O_MINI;
+import java.util.function.Consumer;
 
 @Slf4j
+@SpringBootApplication
 public class Application implements CommandLineRunner {
 
-    private final InMemoryEmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
+    private final EmbeddingStore<TextSegment> embeddingStore;
 
-    private final ChatLanguageModel chatModel = OpenAiChatModel.builder()
-        .apiKey(System.getenv("OPENAI_API_KEY"))
-        .modelName(GPT_4_O_MINI)
-        .build();
+    private final Assistant assistant;
 
-    private final Assistant assistant = AiServices.builder(Assistant.class)
-        .chatLanguageModel(chatModel)
-        .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
-        .contentRetriever(EmbeddingStoreContentRetriever.from(embeddingStore))
-        .build();
+    public Application(EmbeddingStore<TextSegment> embeddingStore, ChatLanguageModel chatModel) {
+        this.embeddingStore = embeddingStore;
+        this.assistant = AiServices.builder(Assistant.class)
+                .chatLanguageModel(chatModel)
+                .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
+                .contentRetriever(EmbeddingStoreContentRetriever.from(embeddingStore))
+                .build();
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -47,20 +45,18 @@ public class Application implements CommandLineRunner {
     public void run(String... args) throws Exception {
         if (args.length > 0) {
             List<Document> docs = ingest(List.of(args));
-            store(docs);
+            IngestionResult inResult = store(docs);
+            log.info("Ingestion Result: {}", inResult);
 
-            String response;
-            while((response = chat()) != null) {
-                log.info("Response: {}", response);
-            }
+            chat(line -> log.info("Response: {}", line));
         } else {
             log.error("No arguments given");
         }
 
     }
 
-    private void store(List<Document> docs) {
-        EmbeddingStoreIngestor.ingest(docs, embeddingStore);
+    private IngestionResult store(List<Document> docs) {
+        return EmbeddingStoreIngestor.ingest(docs, embeddingStore);
     }
 
     /**
@@ -75,16 +71,17 @@ public class Application implements CommandLineRunner {
     }
 
     @SuppressWarnings("java:S106")
-    private String chat() {
+    private void chat(Consumer<String> lineConsumer) {
         try (Scanner inputScanner = new Scanner(System.in)) {
-
-            System.out.print("Prompt: ");
-            String message = inputScanner.nextLine();
-            if (message == null || message.isEmpty()) {
-                log.error("No Message, exiting");
-                return null;
+            while(true) {
+                System.out.print("Prompt: ");
+                String message = inputScanner.nextLine();
+                if (message == null || message.isEmpty()) {
+                    log.error("No Message, exiting");
+                    return;
+                }
+                assistant.chat(message);
             }
-            return assistant.chat(message);
         }
     }
 }

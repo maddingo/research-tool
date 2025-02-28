@@ -77,10 +77,11 @@ public class Application implements CommandLineRunner {
                 System.out.print("Prompt: ");
                 String message = inputScanner.nextLine();
                 if (message == null || message.isEmpty()) {
-                    log.error("No Message, exiting");
+                    log.warn("No Message, exiting");
                     return;
                 }
-                assistant.chat(message);
+                String response = assistant.chat(message);
+                lineConsumer.accept(response);
             }
         }
     }

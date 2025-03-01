@@ -1,5 +1,6 @@
 package no.maddin.reasearchtool;
 
+import dev.langchain4j.data.document.BlankDocumentException;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
 import dev.langchain4j.data.segment.TextSegment;
@@ -64,7 +65,15 @@ public class Application implements CommandLineRunner {
      */
     private List<Document> ingest(List<String> files) {
         List<Document> documents = new ArrayList<>();
-        files.forEach(file -> documents.add(FileSystemDocumentLoader.loadDocument(file)));
+        files.forEach(file -> {
+            log.info("ingesting file {}", file);
+            try {
+                documents.add(FileSystemDocumentLoader.loadDocument(file));
+            } catch (BlankDocumentException e) {
+                log.warn("Error ingesting file {}", file, e);
+            }
+
+        });
         log.info("Loaded {} documents", documents.size());
 
         return documents;

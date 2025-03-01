@@ -4,13 +4,10 @@ import dev.langchain4j.data.document.BlankDocumentException;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import dev.langchain4j.store.embedding.IngestionResult;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -23,20 +20,12 @@ import java.util.function.Consumer;
 
 @Slf4j
 @SpringBootApplication
+@RequiredArgsConstructor
 public class Application implements CommandLineRunner {
 
     private final EmbeddingStore<TextSegment> embeddingStore;
 
     private final Assistant assistant;
-
-    public Application(EmbeddingStore<TextSegment> embeddingStore, ChatLanguageModel chatModel) {
-        this.embeddingStore = embeddingStore;
-        this.assistant = AiServices.builder(Assistant.class)
-                .chatLanguageModel(chatModel)
-                .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
-                .contentRetriever(EmbeddingStoreContentRetriever.from(embeddingStore))
-                .build();
-    }
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -45,9 +34,8 @@ public class Application implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         if (args.length > 0) {
-            List<Document> docs = ingest(List.of(args));
-            IngestionResult inResult = store(docs);
-            log.info("Ingestion Result: {}", inResult);
+            IngestionResult inResult = ingest(List.of(args));
+            log.info("Ingestion Result: total tokens={}", inResult.tokenUsage().totalTokenCount());
 
             chat(line -> log.info("Response: {}", line));
         } else {
@@ -56,14 +44,10 @@ public class Application implements CommandLineRunner {
 
     }
 
-    private IngestionResult store(List<Document> docs) {
-        return EmbeddingStoreIngestor.ingest(docs, embeddingStore);
-    }
-
     /**
      * follow https://docs.langchain4j.dev/tutorials/rag
      */
-    private List<Document> ingest(List<String> files) {
+    private IngestionResult ingest(List<String> files) {
         List<Document> documents = new ArrayList<>();
         files.forEach(file -> {
             log.info("ingesting file {}", file);
@@ -72,11 +56,8 @@ public class Application implements CommandLineRunner {
             } catch (BlankDocumentException e) {
                 log.warn("Error ingesting file {}", file, e);
             }
-
         });
-        log.info("Loaded {} documents", documents.size());
-
-        return documents;
+        return EmbeddingStoreIngestor.ingest(documents, embeddingStore);
     }
 
     @SuppressWarnings("java:S106")

@@ -3,12 +3,15 @@ package no.maddin.reasearchtool;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Image;
 import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import jakarta.annotation.PreDestroy;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,13 +20,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.env.Environment;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import java.text.MessageFormat;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -47,7 +48,6 @@ public class DevBeansConfig implements BeanConfig {
         this.ollamaImage = ollamaImage;
         this.modelName = modelName;
         this.dockerImageNameTC = String.format("tc-%s-%s", ollamaImage, modelName);
-
     }
 
     @Bean
@@ -57,12 +57,47 @@ public class DevBeansConfig implements BeanConfig {
     }
 
     @Bean
+    @Override
+    public ChatMemory chatMemory() {
+        return MessageWindowChatMemory.withMaxMessages(10);
+    }
+
+    @Bean
+    @Override
+    public ContentRetriever contentRetriever(@Autowired EmbeddingStore<TextSegment> embeddingStore) {
+        return EmbeddingStoreContentRetriever.from(embeddingStore);
+    }
+
+    @Bean
     public OllamaContainer ollamaContainer() {
         return container.updateAndGet(c -> {
             if (c == null) {
                 return createOllamaContainer();
             }
             return c;
+        });
+    }
+
+    @Bean
+    @Override
+    public ChatLanguageModel chatModel() {
+        OllamaContainer ollama = applicationContext.getBean(OllamaContainer.class);
+        return OllamaChatModel.builder()
+            .baseUrl(ollama.getEndpoint())
+            .temperature(0.0)
+            .logRequests(true)
+            .logResponses(true)
+            .modelName(modelName)
+            .build();
+    }
+
+    @PreDestroy
+    private void stopContainer() {
+        container.getAndUpdate(c -> {
+            if (c != null) {
+                c.stop();
+            }
+            return null;
         });
     }
 
@@ -87,29 +122,5 @@ public class DevBeansConfig implements BeanConfig {
         ollama.commitToImage(dockerImageNameTC);
 
         return ollama;
-    }
-
-    @Bean
-    @Override
-    public ChatLanguageModel chatModel() {
-//        String modelName = environment.getProperty("researchtool.ollama.model", TINY_DOLPHIN_MODEL);
-        OllamaContainer ollama = applicationContext.getBean(OllamaContainer.class);
-        return OllamaChatModel.builder()
-            .baseUrl(ollama.getEndpoint())
-            .temperature(0.0)
-            .logRequests(true)
-            .logResponses(true)
-            .modelName(modelName)
-            .build();
-    }
-
-    @PreDestroy
-    public void stopContainer() {
-        container.getAndUpdate(c -> {
-            if (c != null) {
-                c.stop();
-            }
-            return null;
-        });
     }
 }

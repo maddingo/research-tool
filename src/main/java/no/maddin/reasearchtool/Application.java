@@ -13,8 +13,10 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.function.Consumer;
 
@@ -57,7 +59,24 @@ public class Application implements CommandLineRunner {
                 log.warn("Error ingesting file {}", file, e);
             }
         });
-        return EmbeddingStoreIngestor.ingest(documents, embeddingStore);
+        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+            .embeddingStore(embeddingStore)
+            .textSegmentTransformer(ts -> {
+                log.debug("TextSegment transformer: {}", ts.metadata());
+                var fileName = Optional.ofNullable(ts.metadata())
+                    .filter(md -> md.containsKey("absolute_directory_path") && md.containsKey("file_name"))
+                    .map(md ->
+                        md.getString("absolute_directory_path") + File.separator + md.getString("file_name")
+                    )
+                    .orElse("");
+
+                return TextSegment.from(
+                    ts.text(),
+                    ts.metadata().put("source", fileName)
+                );}
+            )
+            .build();
+        return ingestor.ingest(documents);
     }
 
     @SuppressWarnings("java:S106")
@@ -70,8 +89,12 @@ public class Application implements CommandLineRunner {
                     log.warn("No Message, exiting");
                     return;
                 }
-                String response = assistant.chat(message);
-                lineConsumer.accept(response);
+                try {
+                    String response = assistant.chat(message);
+                    lineConsumer.accept(response);
+                } catch(RuntimeException e) {
+                    log.warn("Error in chat", e);
+                }
             }
         }
     }

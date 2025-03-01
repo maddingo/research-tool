@@ -2,3 +2,5 @@ target/
 .idea
 *.iml
 application-dev.yml
+hs_err_*.log
+

@@ -6,9 +6,14 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.rag.DefaultRetrievalAugmentor;
+import dev.langchain4j.rag.RetrievalAugmentor;
+import dev.langchain4j.rag.content.injector.DefaultContentInjector;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
+import dev.langchain4j.rag.query.router.DefaultQueryRouter;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import jakarta.annotation.PreDestroy;
@@ -88,6 +93,19 @@ public class DevBeansConfig implements BeanConfig {
             .logRequests(true)
             .logResponses(true)
             .modelName(modelName)
+            .build();
+    }
+
+    @Bean
+    @Override
+    public RetrievalAugmentor retrievalAugmentor(@Autowired ContentRetriever contentRetriever) {
+        return DefaultRetrievalAugmentor.builder()
+            .contentInjector(DefaultContentInjector.builder()
+                .promptTemplate(PromptTemplate.from("{{userMessage}}\n{{contents}}"))
+//                .metadataKeysToInclude(List.of("absolute_directory_path", "file_name"))
+                .metadataKeysToInclude(List.of("source"))
+                .build())
+            .queryRouter(new DefaultQueryRouter(contentRetriever))
             .build();
     }
 

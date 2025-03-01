@@ -1,0 +1,4 @@
+research-tool:
+  ollama:
+    model: llama3.2
+    image: ollama/ollama:latest

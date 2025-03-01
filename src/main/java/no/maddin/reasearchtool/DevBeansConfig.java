@@ -9,7 +9,10 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,23 +23,32 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Configuration
 @Profile("dev")
-@RequiredArgsConstructor
 @Slf4j
 public class DevBeansConfig implements BeanConfig {
 
-    static final String OLLAMA_IMAGE = "ollama/ollama:latest";
-    static final String TINY_DOLPHIN_MODEL = "tinydolphin";
-    static final String DOCKER_IMAGE_NAME = "tc-ollama/ollama:latest-tinydolphin";
-
-//    private final Environment environment;
     private final ApplicationContext applicationContext;
     private final AtomicReference<OllamaContainer> container = new AtomicReference<>();
+    private final String modelName;
+    private final String dockerImageNameTC;
+    private final String ollamaImage;
+
+    public DevBeansConfig(
+        @Autowired ApplicationContext applicationContext,
+        @Value("${research-tool.ollama.image}") String ollamaImage,
+        @Value("${research-tool.ollama.model}") String modelName
+    ) {
+        this.applicationContext = applicationContext;
+        this.ollamaImage = ollamaImage;
+        this.modelName = modelName;
+        this.dockerImageNameTC = String.format("tc-%s-%s", ollamaImage, modelName);
+
+    }
 
     @Bean
     @Override
@@ -54,31 +66,25 @@ public class DevBeansConfig implements BeanConfig {
         });
     }
 
+    @SneakyThrows
     private OllamaContainer createOllamaContainer() {
-//        String ollamaImage = environment.getProperty("researchtool.ollama.image", OLLAMA_IMAGE);
-//        String modelName = environment.getProperty("researchtool.ollama.model", TINY_DOLPHIN_MODEL);
 
-        DockerImageName dockerImageName = DockerImageName.parse(OLLAMA_IMAGE);
+        DockerImageName dockerImageName = DockerImageName.parse(ollamaImage);
         DockerClient dockerClient = DockerClientFactory.instance().client();
-        List<Image> images = dockerClient.listImagesCmd().withReferenceFilter(DOCKER_IMAGE_NAME).exec();
+        List<Image> images = dockerClient.listImagesCmd().withReferenceFilter(dockerImageNameTC).exec();
         OllamaContainer ollama;
         if (images.isEmpty()) {
             ollama = new OllamaContainer(dockerImageName);
         } else {
-            ollama = new OllamaContainer(DockerImageName.parse(DOCKER_IMAGE_NAME).asCompatibleSubstituteFor(OLLAMA_IMAGE));
+            ollama = new OllamaContainer(DockerImageName.parse(dockerImageNameTC).asCompatibleSubstituteFor(ollamaImage));
         }
         ollama.start();
 
         // Pull the model and create an image based on the selected model.
-        try {
-
-            log.info("Start pulling the '{}' model ... would take several minutes ...", TINY_DOLPHIN_MODEL);
-            Container.ExecResult r = ollama.execInContainer("ollama", "pull", TINY_DOLPHIN_MODEL);
-            log.info("Model pulling competed! {}", r);
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException("Error pulling model", e);
-        }
-        ollama.commitToImage(DOCKER_IMAGE_NAME);
+        log.info("Start pulling the '{}' model ... would take several minutes ...", modelName);
+        Container.ExecResult r = ollama.execInContainer("ollama", "pull", modelName);
+        log.info("Model pulling competed! {}", r);
+        ollama.commitToImage(dockerImageNameTC);
 
         return ollama;
     }
@@ -93,7 +99,7 @@ public class DevBeansConfig implements BeanConfig {
             .temperature(0.0)
             .logRequests(true)
             .logResponses(true)
-            .modelName(TINY_DOLPHIN_MODEL)
+            .modelName(modelName)
             .build();
     }
 

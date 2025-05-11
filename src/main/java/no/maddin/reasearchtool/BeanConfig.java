@@ -2,7 +2,7 @@ package no.maddin.reasearchtool;
 
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.rag.RetrievalAugmentor;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -14,7 +14,7 @@ public interface BeanConfig {
 
     ContentRetriever contentRetriever(EmbeddingStore<TextSegment> embeddingStore);
 
-    ChatLanguageModel chatModel();
+    ChatModel chatModel();
 
     RetrievalAugmentor retrievalAugmentor(ContentRetriever contentRetriever);
 }

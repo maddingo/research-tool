@@ -5,7 +5,7 @@ import com.github.dockerjava.api.model.Image;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
@@ -85,7 +85,7 @@ public class DevBeansConfig implements BeanConfig {
 
     @Bean
     @Override
-    public ChatLanguageModel chatModel() {
+    public ChatModel chatModel() {
         OllamaContainer ollama = applicationContext.getBean(OllamaContainer.class);
         return OllamaChatModel.builder()
             .baseUrl(ollama.getEndpoint())

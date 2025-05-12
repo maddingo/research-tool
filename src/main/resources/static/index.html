@@ -1,0 +1,38 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Research Tool</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+    <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-blue-grey.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body class="w3-theme-l5">
+<div class="w3-bar w3-theme-d3">
+    <div class="w3-bar-item w3-hide"></div>
+    <!--a href="#" class="w3-bar-item w3-button">Link 1</a-->
+    <div class="w3-dropdown-hover">
+        <button class="w3-button"><i class="fa fa-bars"></i></button>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4">
+            <a href="#" class="w3-bar-item w3-button">Link 1</a>
+            <a href="#" class="w3-bar-item w3-button">Link 2</a>
+            <a href="#" class="w3-bar-item w3-button">Link 3</a>
+        </div>
+    </div>
+    <div class="w3-bar-item">Research Tool</div>
+    <a href="/about.html" class="w3-bar-item w3-right w3-button"><i class="fa fa-question"></i></a>
+</div>
+<div class="w3-container w3-left w3-margin-top w3-display-container" style="width: 100%;">
+<form action="#" class="w3-container w3-card">
+    <label>Prompt:</label>
+    <input class="w3-input w3-round" type="text" name="prompt" />
+</form>
+<div class="w3-container w3-card w3-hide" id="chatresponse-container">
+<p>Response:</p>
+<p id="chatresponse"></p>
+</div>
+</div>
+<script src="aichat.js"></script>
+</body>
+</html>
